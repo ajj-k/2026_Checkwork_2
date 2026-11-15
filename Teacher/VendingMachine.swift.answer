@@ -1,0 +1,79 @@
+import Foundation
+import Combine
+
+// TODO 1〜5 を完成させよう。名前・引数・型は変更しないでください。
+enum PurchaseError: Error, Equatable {
+    case invalidAmount
+    case soldOut
+    case insufficientFunds(shortage: Int)
+}
+
+func parseAmount(_ text: String) throws -> Int {
+    // TODO 1: 整数に変換できない、または負の値なら invalidAmount を throw。
+    // 0 以上の整数ならその値を返す。仮の return を置き換えよう。
+    guard let amount = Int(text), amount >= 0 else {
+        throw PurchaseError.invalidAmount
+    }
+    return amount
+}
+
+final class VendingMachine {
+    let price = 120
+    private(set) var stock = 2
+
+    func buy(amount: Int) throws -> Int {
+        // TODO 2: 次の順番で確認する。
+        // 負の金額 → invalidAmount、在庫0 → soldOut、
+        // 120円未満 → insufficientFunds(shortage: 不足額) を throw。
+        // 成功時だけ在庫を1減らし、おつりを返す。
+        guard amount >= 0 else { throw PurchaseError.invalidAmount }
+        guard stock > 0 else { throw PurchaseError.soldOut }
+        guard amount >= price else {
+            throw PurchaseError.insufficientFunds(shortage: price - amount)
+        }
+        stock -= 1
+        return amount - price
+    }
+}
+
+final class PurchaseModel: ObservableObject {
+    private let machine = VendingMachine()
+    @Published private(set) var stock = 2
+    @Published private(set) var message = "金額を入力して購入しよう。"
+    @Published private(set) var isProcessing = false
+
+    func purchase(text: String) {
+        isProcessing = true
+        defer { isProcessing = false }
+        // TODO 5: defer を使い、成功・失敗どちらでも終了時に
+        // isProcessing を false に戻す。各 catch に同じ処理を書かない。
+
+        // TODO 3: do-catch と try で parseAmount → machine.buy の順に呼ぶ。
+        // 成功時は stock を machine.stock に更新し、
+        // message = "購入成功！おつり：\(change)円" として return。
+        // invalidAmount → "0以上の整数を入力してください。"
+        // soldOut → "売り切れです。"
+        // insufficientFunds → "あと\(shortage)円必要です。"
+        // その他 → "予期しないエラーです。"
+        do {
+            let amount = try parseAmount(text)
+            let change = try machine.buy(amount: amount)
+            stock = machine.stock
+            message = "購入成功！おつり：\(change)円"
+            return
+        } catch PurchaseError.invalidAmount {
+            message = "0以上の整数を入力してください。"
+        } catch PurchaseError.soldOut {
+            message = "売り切れです。"
+        } catch PurchaseError.insufficientFunds(let shortage) {
+            message = "あと\(shortage)円必要です。"
+        } catch {
+            message = "予期しないエラーです。"
+        }
+    }
+
+    func previewAmount(_ text: String) -> Int? {
+        // TODO 4: try? で parseAmount を呼ぶ。失敗したら nil を返す。
+        return try? parseAmount(text)
+    }
+}
